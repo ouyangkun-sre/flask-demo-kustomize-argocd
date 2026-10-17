@@ -6,9 +6,9 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -28,20 +28,30 @@ jobs:
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         if: ${{ github.event.inputs.image }}
-      
+
       - name: kustomize edit
         if: ${{ github.event.inputs.image }}
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
-          kustomize edit set image ${{ github.event.inputs.image }}:${{ github.event.inputs.sha-tag }}
+          cd secret
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz" | tar xz
+          ./kustomize edit set image ${{ github.event.inputs.image }}:${{ github.event.inputs.sha-tag }}
           rm -f kustomize
-      
+
       - name: Git Commit/Push Changes
-        uses: actions-x/commit@v2
         if: ${{ github.event.inputs.image }}
-        with:
-          message: "kustomize set image to ${{ github.event.inputs.image }}:${{ github.event.inputs.sha-tag }}"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add secret/kustomization.yaml
+          git commit -m "kustomize set image to ${{ github.event.inputs.image }}:${{ github.event.inputs.sha-tag }}"
+          git push
