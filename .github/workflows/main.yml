@@ -1,66 +1,42 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
-
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-    inputs:
-      image:
-        required: true
-        description: 'docker image name'
-      sha-tag:
-        required: true
-        description: 'docker image tag'
-
-  # Triggered by repository-dispatch from flask-demo-main CI
-  repository_dispatch:
-    types: [trigger-deploy]
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# 给本次 GitHub Action 内置的 `GITHUB_TOKEN` 授予【仓库内容读写权限】，允许流水线提交代码、git push 推回仓库。
 permissions:
   contents: write
-
+on:
+  # 接收上游仓库 repository-dispatch 推送的事件
+  repository_dispatch:
+    types: [trigger-deploy]
 jobs:
   write-kustomize:
     runs-on: ubuntu-latest
-
+    env:
+      IMAGE: ${{ github.event.client_payload.image }} # github.event代表触发本次 workflow 的原始事件信息
+      SHATAG: ${{ github.event.client_payload.sha-tag }}
     steps:
+      # 下载Github代码到 runner
       - uses: actions/checkout@v4
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image || github.event_name == 'repository_dispatch' }}
 
-      - name: Set image variables
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image || github.event_name == 'repository_dispatch' }}
-        id: vars
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "image=${{ github.event.inputs.image }}" >> $GITHUB_OUTPUT
-            echo "sha-tag=${{ github.event.inputs.sha-tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "image=${{ github.event.client_payload.image }}" >> $GITHUB_OUTPUT
-            echo "sha-tag=${{ github.event.client_payload.sha-tag }}" >> $GITHUB_OUTPUT
-          fi
+      # 安装 kustomize
+      - name: Install kustomize
+        uses: kubernetes-sigs/kustomize-action@v1
+        with:
+          kustomize-version: v5.3.0
 
-      - name: kustomize edit
-        if: ${{ steps.vars.outputs.image }}
-        run: |
-          cd secret
-          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz" | tar xz
-          ./kustomize edit set image ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha-tag }}
-          rm -f kustomize
+      # 更新kustomize
+      - name: 更新kustomize
+        working-directory: ./secret
+        run: kustomize edit set image "$IMAGE:$SHATAG"
 
-      - name: Git Commit/Push Changes
-        if: ${{ steps.vars.outputs.image }}
+      # 提交代码
+      - name: Git Push
+        working-directory: ./secret
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add secret/kustomization.yaml
-          git commit -m "kustomize set image to ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha-tag }}"
+          git add kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "清单没有变更，跳过commit"
+            exit 0
+          fi
+          git commit -m "update image: $IMAGE:$SHATAG"
           git push
