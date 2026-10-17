@@ -29,7 +29,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  write-kustomize:
     runs-on: ubuntu-latest
 
     steps:
