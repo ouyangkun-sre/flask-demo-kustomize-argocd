@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
 - deployment.yaml
 - service.yaml
-- secret-sealed.yaml
+- sealed-secret.yaml
 images:
 - name: yangkuntest/flask-demo-argocd
   newTag: 4e3c18c73f15a59d7ad924682949ca3143025ab7
