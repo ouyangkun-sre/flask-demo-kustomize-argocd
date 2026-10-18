@@ -24,12 +24,12 @@ jobs:
 
       # 更新kustomize
       - name: 更新kustomize
-        working-directory: ./secret
+        working-directory: ./sealed
         run: kustomize edit set image "$IMAGE:$SHATAG"
 
       # 提交代码
       - name: Git Push
-        working-directory: ./secret
+        working-directory: ./sealed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
