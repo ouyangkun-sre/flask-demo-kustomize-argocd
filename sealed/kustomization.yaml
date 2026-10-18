@@ -6,4 +6,4 @@ resources:
 - sealed-secret.yaml
 images:
 - name: docker.io/yangkuntest/flask-demo-argocd
-  newTag: 4e3c18c73f15a59d7ad924682949ca3143025ab7
+  newTag: d39bdfa8abc9a8732fc6ac83e2f7128940e21c81
